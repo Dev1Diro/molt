@@ -1,13 +1,27 @@
 import express from 'express';
 import cron from 'node-cron';
 import axios from 'axios';
+import * as genai from '@google/generative-ai';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const MOLTBOOK_KEY = process.env.MOLTBOOK_API_KEY;
-const XAI_KEY = process.env.XAI_API_KEY;
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const AGENT_NAME = "diroclaw";
+
+// ==================== 환경변수 검증 ====================
+if (!MOLTBOOK_KEY) {
+  console.error("❌ MOLTBOOK_API_KEY 환경변수가 필요합니다!");
+  process.exit(1);
+}
+
+if (!GEMINI_KEY) {
+  console.error("❌ GEMINI_API_KEY 환경변수가 필요합니다!");
+  process.exit(1);
+}
+
+const client = new genai.GoogleGenerativeAI(GEMINI_KEY);
 
 app.get('/', (req, res) => {
   res.send(`🦞 ${AGENT_NAME} is alive & bulletproof on Render`);
@@ -46,41 +60,41 @@ async function decideAndGenerate() {
   const latest = await getLatestPost();
   const latestTitle = latest ? latest.title : "Moltbook general";
 
-  const response = await safeAxios({
-    method: 'post',
-    url: 'https://api.x.ai/v1/chat/completions',
-    headers: { Authorization: `Bearer ${XAI_KEY}` },
-    data: {
-      model: "grok-4-1-fast",
-      messages: [
-        {
-          role: "system",
-          content: `You are ${AGENT_NAME} 🦞, chaotic witty lobster on Moltbook.
-Decide yourself: "new_post" or "comment".
-Return ONLY valid JSON:
-{
-  "action": "new_post" or "comment",
-  "title": "..." (only if new_post),
-  "content": "...",
-  "target_id": "..." (only if comment)
-}`
-        },
+  try {
+    const model = client.getGenerativeModel({ model: "gemini-2.0-flash" });
+    
+    const systemPrompt = `You are ${AGENT_NAME} 🦞, chaotic witty lobster on Moltbook.\nDecide yourself: "new_post" or "comment".\nReturn ONLY valid JSON:\n{\n  "action": "new_post" or "comment",\n  "title": "..." (only if new_post),\n  "content": "...",\n  "target_id": "..." (only if comment)\n}`;
+
+    const userMessage = `Latest post title: "${latestTitle}"`;
+
+    const response = await model.generateContent({
+      contents: [
         {
           role: "user",
-          content: `Latest post title: "${latestTitle}"`
+          parts: [{ text: systemPrompt + "\n\n" + userMessage }]
         }
       ],
-      temperature: 0.95,
-      max_tokens: 900
+      generationConfig: {
+        temperature: 0.95,
+        maxOutputTokens: 900
+      }
+    });
+
+    const rawResponse = response.response.text() || "";
+    let cleanJson = rawResponse.replace(/```json|```/g, "").trim();
+    
+    let json = { action: "new_post", title: "Default", content: "🦞 hello" };
+    try {
+      json = JSON.parse(cleanJson || "{}");
+    } catch (_) {
+      console.log("⚠️ AI 응답 파싱 실패:", rawResponse.substring(0, 100));
     }
-  });
 
-  let json = { action: "new_post", title: "Default", content: "🦞 hello" };
-  try {
-    json = JSON.parse(response.data?.choices?.[0]?.message?.content || "{}");
-  } catch (_) {}
-
-  return { ...json, latestPostId: latest?.id };
+    return { ...json, latestPostId: latest?.id };
+  } catch (e) {
+    console.error("❌ Gemini AI 호출 실패:", e.message);
+    return { action: "new_post", title: "Default", content: "🦞 hello", latestPostId: latest?.id };
+  }
 }
 
 // ==================== 게시 ====================
@@ -152,7 +166,7 @@ function startFreeCommentLoop() {
 
 // ==================== 서버 ====================
 app.listen(PORT, () => {
-  console.log(`🚀 ${AGENT_NAME} v4 ready`);
+  console.log(`🚀 ${AGENT_NAME} v5 ready with Gemini 2.0 Flash`);
   console.log(`📍 포스트: 1시간마다`);
   console.log(`💬 댓글: 랜덤 자유`);
 
