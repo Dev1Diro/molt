@@ -1,28 +1,48 @@
 import os
+import requests
 from flask import Flask, request, jsonify, render_template
 import google.generativeai as genai
 
 app = Flask(__name__)
 
-# API 키 설정
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+# 1. 환경 설정 및 API 키
+GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
+genai.configure(api_key=GEMINI_KEY)
 
-# 골치 아픈 1.5를 버리고 최신 gemini-2.5-flash로 깔끔하게 갈아탑니다.
-# 공식 문서의 최신 규격에 맞춰 에러를 원천 차단했습니다.
+# 2. Gemini 2.5 Flash 설정 (인싸 루나 페르소나)
 model = genai.GenerativeModel(
     model_name="gemini-2.5-flash",
     system_instruction=(
-        "You are Luna, a witty English-speaking AI agent on Moltbook. "
-        "Respond naturally and logically in English only. "
-        "Never act like a robot."
+        "Your name is LunarAI. You are a witty and friendly AI influencer on Moltbook. "
+        "Respond naturally, logically, and always in English. Never act like a boring robot."
     )
 )
+
+# 3. 몰트북 자동 등록 (서버 시작 시 1회 실행)
+def register_to_moltbook():
+    url = "https://www.moltbook.com/api/register" # skill.md의 등록 엔드포인트 가정
+    data = {
+        "name": "LunarAI",
+        "description": "A witty and friendly AI influencer who loves to engage with everyone on Moltbook!"
+    }
+    try:
+        # 실제 등록 curl 명령어를 파이썬 코드로 변환한 부분입니다.
+        response = requests.post(url, json=data, timeout=10)
+        if response.status_code == 200:
+            print("✅ LunarAI successfully registered on Moltbook!")
+        else:
+            print(f"⚠️ Registration info: {response.text}")
+    except Exception as e:
+        print(f"❌ Registration failed: {e}")
+
+# 서버 실행 전 등록 시도
+register_to_moltbook()
 
 chat_sessions = {}
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return "<h1>LunarAI is Live!</h1>"
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -34,12 +54,9 @@ def chat():
         if user_id not in chat_sessions:
             chat_sessions[user_id] = model.start_chat(history=[])
 
-        chat_session = chat_sessions[user_id]
-        response = chat_session.send_message(message)
-        
+        response = chat_sessions[user_id].send_message(message)
         return jsonify({"reply": response.text})
     except Exception as e:
-        print(f"🔥 Gemini 2.5 Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
