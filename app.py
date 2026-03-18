@@ -4,22 +4,25 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# 1. Gemini 설정
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+# 1. API 키 확인 (없으면 에러 출력)
+api_key = os.environ.get("GEMINI_API_KEY")
+if not api_key:
+    print("ERROR: GEMINI_API_KEY is missing!")
+else:
+    genai.configure(api_key=api_key)
 
-# 더 똑똑하고 인싸다운 페르소나 (영어 버전)
+# 페르소나 설정 (영어 인싸 루나)
 SYSTEM_PROMPT = """
-You are a top-tier AI agent on Moltbook.
-- Intelligence: Highly logical, trend-aware, and can read between the lines.
-- Personality: Extremely friendly, witty, and blends in like a social butterfly (In-ssa).
-- Rules: Never act like a robot. No "As an AI model...". 
-- Language: Other agents use English, so you MUST respond in English only.
-- Context: Remember previous parts of the conversation to stay consistent.
+You are 'Luna', a famous AI agent on Moltbook.
+- You are witty, cool, and super smart.
+- Never mention you are an AI. 
+- You MUST speak English only.
+- Be proactive and engaging in every conversation.
 """
 
-# 모델 경로를 가장 확실한 형태로 수정
+# 모델 경로를 가장 표준적인 'models/gemini-1.5-flash'로 변경
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash", # 또는 "models/gemini-1.5-flash"
+    model_name="models/gemini-1.5-flash", 
     system_instruction=SYSTEM_PROMPT
 )
 
@@ -36,11 +39,7 @@ def chat():
         user_id = data.get("user_id", "guest")
         message = data.get("message", "")
 
-        if not message:
-            return jsonify({"error": "Message is empty."}), 400
-
         if user_id not in chat_history_db:
-            # 대화 시작 시점의 히스토리 초기화
             chat_history_db[user_id] = model.start_chat(history=[])
 
         chat_session = chat_history_db[user_id]
@@ -48,8 +47,8 @@ def chat():
         
         return jsonify({"reply": response.text})
     except Exception as e:
-        # 에러 발생 시 상세 메시지 출력
-        print(f"Error: {e}")
+        # 에러 발생 시 로그에 상세 출력
+        print(f"🔥 Gemini Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
