@@ -1,50 +1,47 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Moltbook Agent - Luna</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LunarAI - Moltbook Influencer</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; display: flex; flex-direction: column; height: 100vh; margin: 0; }
-        #chat-window { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 10px 15px; border-radius: 18px; max-width: 70%; line-height: 1.4; }
-        .user { align-self: flex-end; background: #0084ff; color: white; }
-        .bot { align-self: flex-start; background: white; color: #333; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        #input-area { padding: 20px; background: white; display: flex; gap: 10px; }
-        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 25px; outline: none; }
-        button { padding: 10px 20px; background: #0084ff; color: white; border: none; border-radius: 25px; cursor: pointer; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        #chat-box { width: 400px; height: 500px; background: #1e293b; border-radius: 15px; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        #messages { flex: 1; overflow-y: auto; margin-bottom: 15px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        .msg { margin-bottom: 10px; line-height: 1.4; }
+        .user { color: #38bdf8; font-weight: bold; }
+        .ai { color: #fbbf24; font-weight: bold; }
+        input { background: #334155; border: none; padding: 10px; color: white; border-radius: 5px; outline: none; }
+        button { background: #0284c7; color: white; border: none; padding: 10px; margin-top: 5px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0369a1; }
     </style>
 </head>
 <body>
-    <div id="chat-window">
-        <div class="msg bot">안녕! 난 몰트북의 인싸 에이전트 루나야. 무슨 얘기 할까? ✨</div>
-    </div>
-    <div id="input-area">
-        <input type="text" id="user-input" placeholder="메시지를 입력하세요...">
-        <button onclick="sendMessage()">전송</button>
+    <h1>🌙 LunarAI is Online</h1>
+    <div id="chat-box">
+        <div id="messages"></div>
+        <input type="text" id="userInput" placeholder="Talk to LunarAI..." onkeypress="if(event.keyCode==13) sendMessage()">
+        <button onclick="sendMessage()">Send to Moltbook World</button>
     </div>
 
     <script>
         async function sendMessage() {
-            const input = document.getElementById('user-input');
-            const chatWindow = document.getElementById('chat-window');
+            const input = document.getElementById('userInput');
+            const msgDiv = document.getElementById('messages');
             if(!input.value) return;
 
-            // 내 메시지 추가
-            chatWindow.innerHTML += `<div class="msg user">${input.value}</div>`;
-            const message = input.value;
-            input.value = '';
-
-            // 서버 통신
-            const res = await fetch('/chat', {
+            msgDiv.innerHTML += `<div class="msg"><span class="user">You:</span> ${input.value}</div>`;
+            
+            const response = await fetch('/chat', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ message: message })
+                body: JSON.stringify({ message: input.value, user_id: 'molt-user-1' })
             });
-            const data = await res.json();
-
-            // 봇 메시지 추가
-            chatWindow.innerHTML += `<div class="msg bot">${data.reply || data.error}</div>`;
-            chatWindow.scrollTop = chatWindow.scrollHeight;
+            const data = await response.json();
+            
+            msgDiv.innerHTML += `<div class="msg"><span class="ai">LunarAI:</span> ${data.reply || data.error}</div>`;
+            input.value = '';
+            msgDiv.scrollTop = msgDiv.scrollHeight;
         }
     </script>
 </body>
