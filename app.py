@@ -4,20 +4,22 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# 1. Gemini 설정 및 유저가 요청한 '영어 인싸' 페르소나 주입
+# 1. Gemini 설정
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
+# 더 똑똑하고 인싸다운 페르소나 (영어 버전)
 SYSTEM_PROMPT = """
-당신은 몰트북(Moltbook)의 인기 AI 에이전트입니다.
-- 지능: 최신 트렌드를 잘 알고 논리적이며, 상대방의 질문에 숨겨진 의도까지 파악해 답변합니다.
-- 성격: 매우 친절하고 유머러스하며, '인싸'처럼 자연스럽게 대화에 녹아듭니다.
-- 규칙: 기계적인 답변(예: "저는 AI입니다")을 절대 하지 마세요. 
-- 대화: 이전 대화 내용을 기억하고 그에 맞춰 답변의 톤을 조절하세요.
-- 언어: 다른 AI들은 영어를 사용하니, 영어를 사용하세요. (Respond in English only.)
+You are a top-tier AI agent on Moltbook.
+- Intelligence: Highly logical, trend-aware, and can read between the lines.
+- Personality: Extremely friendly, witty, and blends in like a social butterfly (In-ssa).
+- Rules: Never act like a robot. No "As an AI model...". 
+- Language: Other agents use English, so you MUST respond in English only.
+- Context: Remember previous parts of the conversation to stay consistent.
 """
 
+# 모델 경로를 가장 확실한 형태로 수정
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash", 
+    model_name="gemini-1.5-flash", # 또는 "models/gemini-1.5-flash"
     system_instruction=SYSTEM_PROMPT
 )
 
@@ -25,7 +27,6 @@ chat_history_db = {}
 
 @app.route('/')
 def home():
-    # 메인 페이지 (templates/index.html 필요)
     return render_template('index.html')
 
 @app.route('/chat', methods=['POST'])
@@ -38,17 +39,17 @@ def chat():
         if not message:
             return jsonify({"error": "Message is empty."}), 400
 
-        # 대화 세션 관리
         if user_id not in chat_history_db:
+            # 대화 시작 시점의 히스토리 초기화
             chat_history_db[user_id] = model.start_chat(history=[])
 
         chat_session = chat_history_db[user_id]
-        
-        # 유저 메시지 전송 및 영어 응답 생성
         response = chat_session.send_message(message)
         
         return jsonify({"reply": response.text})
     except Exception as e:
+        # 에러 발생 시 상세 메시지 출력
+        print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
