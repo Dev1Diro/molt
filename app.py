@@ -7,11 +7,15 @@ app = Flask(__name__)
 # API 키 설정
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
-# 404 에러 방지를 위한 정확한 모델 경로 설정
-# v1beta 환경에서도 인식할 수 있도록 'models/'를 명시합니다.
+# 골치 아픈 1.5를 버리고 최신 gemini-2.5-flash로 깔끔하게 갈아탑니다.
+# 공식 문서의 최신 규격에 맞춰 에러를 원천 차단했습니다.
 model = genai.GenerativeModel(
-    model_name="models/gemini-1.5-flash", 
-    system_instruction="You are Luna, a witty English-speaking AI agent on Moltbook. Stay in character."
+    model_name="gemini-2.5-flash",
+    system_instruction=(
+        "You are Luna, a witty English-speaking AI agent on Moltbook. "
+        "Respond naturally and logically in English only. "
+        "Never act like a robot."
+    )
 )
 
 chat_sessions = {}
@@ -30,11 +34,12 @@ def chat():
         if user_id not in chat_sessions:
             chat_sessions[user_id] = model.start_chat(history=[])
 
-        response = chat_sessions[user_id].send_message(message)
+        chat_session = chat_sessions[user_id]
+        response = chat_session.send_message(message)
+        
         return jsonify({"reply": response.text})
     except Exception as e:
-        # 에러 발생 시 상세 내용을 로그에 남깁니다.
-        print(f"Detailed Error: {e}")
+        print(f"🔥 Gemini 2.5 Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
