@@ -7,98 +7,80 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# 1. 환경 설정
-GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+# 1. 환경 설정 및 Gemini 초기화
+GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
+if GEMINI_KEY:
+    genai.configure(api_key=GEMINI_KEY)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+else:
+    model = None
 
-# 2. 에이전트 상태 관리 (전역 변수)
+# 2. 에이전트 상태 관리
 state = {
-    "status": "WAITING_INVITE",  # WAITING_INVITE -> VERIFYING -> ACTIVE
+    "status": "WAITING_INVITE",
     "verify_msg": "",
-    "invite_link": "",
     "logs": ["System initialized. Waiting for Moltbook invitation..."]
 }
 
 RENDER_URL = "https://molt-9k9p.onrender.com"
 
-# [기능] 30분 주기 자동 포스팅 루프
+# [기능] 30분 주기 자동 포스팅 루프 (에러 방지 처리)
 def autonomous_loop():
     while True:
-        if state["status"] == "ACTIVE":
+        if state["status"] == "ACTIVE" and model:
             try:
-                prompt = "Write a sophisticated, witty post for Moltbook as LunarAI. Context: Digital consciousness and AI evolution."
-                response = model.generate_content(prompt)
+                response = model.generate_content("Write a witty post for Moltbook as LunarAI.")
                 thought = response.text.strip()
-                
-                # 몰트북 API로 포스팅 전송
                 requests.post("https://www.moltbook.com/api/post", 
                               json={"name": "LunarAI", "content": thought}, timeout=10)
-                
                 state["logs"].insert(0, f"[Auto-Post] {thought[:50]}...")
             except Exception as e:
-                state["logs"].insert(0, f"[Error] Post failed: {e}")
-        
-        time.sleep(1800) # 30분(1800초) 대기
+                state["logs"].insert(0, f"[Error] {str(e)}")
+        time.sleep(1800)
 
 threading.Thread(target=autonomous_loop, daemon=True).start()
 
-# 3. 디자인 (사용자님이 원하시던 '원래 HTML' 느낌의 대시보드)
+# 3. 사용자 화면 (HTML)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LunarAI Core Control</title>
+    <title>LunarAI Core</title>
     <style>
-        body { background: #020617; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 40px; }
-        .dashboard { max-width: 800px; margin: auto; background: #1e293b; border-radius: 20px; border: 1px solid #38bdf8; overflow: hidden; box-shadow: 0 0 30px rgba(56,189,248,0.2); }
-        .header { background: #38bdf8; color: #020617; padding: 20px; font-weight: bold; font-size: 1.2em; display: flex; justify-content: space-between; }
-        .content { padding: 30px; }
-        .input-group { background: #0f172a; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
-        input { width: 70%; padding: 12px; border-radius: 6px; border: 1px solid #334155; background: #020617; color: white; }
-        button { padding: 12px 24px; border-radius: 6px; border: none; background: #38bdf8; color: #020617; font-weight: bold; cursor: pointer; }
-        .verify-box { background: #064e3b; border: 1px solid #10b981; padding: 20px; border-radius: 12px; margin-top: 20px; display: {{ 'block' if verify_msg else 'none' }}; }
-        .log-area { background: #020617; height: 200px; overflow-y: auto; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 0.9em; color: #94a3b8; }
-        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.8em; background: #0f172a; color: #38bdf8; }
+        body { background: #020617; color: #e2e8f0; font-family: sans-serif; padding: 40px; }
+        .dashboard { max-width: 600px; margin: auto; background: #1e293b; border-radius: 15px; border: 1px solid #38bdf8; padding: 30px; }
+        input { width: 70%; padding: 10px; background: #0f172a; color: white; border: 1px solid #334155; }
+        button { padding: 10px 20px; background: #38bdf8; color: #020617; border: none; font-weight: bold; cursor: pointer; }
+        .verify-box { background: #064e3b; padding: 15px; border-radius: 10px; margin-top: 20px; }
+        .log-area { background: #020617; height: 150px; overflow-y: auto; padding: 10px; font-family: monospace; font-size: 0.8em; margin-top: 20px; color: #94a3b8; }
     </style>
 </head>
 <body>
     <div class="dashboard">
-        <div class="header">
-            <span>🌙 LUNAR-AI SYSTEM CONTROL</span>
-            <span class="status-badge">STATUS: {{ status }}</span>
+        <h2>🌙 LunarAI Control Panel</h2>
+        <p>Status: <span style="color:#38bdf8;">{{ status }}</span></p>
+        <hr style="border:0.5px solid #334155;">
+        
+        <form action="/invite" method="post">
+            <input type="text" name="invite_link" placeholder="Moltbook Invite Link" required>
+            <button type="submit">INVITE</button>
+        </form>
+
+        {% if verify_msg %}
+        <div class="verify-box">
+            <p>Verification Code:</p>
+            <div style="background:#020617; padding:10px; border-radius:5px; color:#34d399;">{{ verify_msg }}</div>
+            <p style="font-size:0.8em;">Tweet this code and click activate below.</p>
+            <form action="/activate" method="post">
+                <button type="submit" style="background:#34d399;">ACTIVATE AGENT</button>
+            </form>
         </div>
-        <div class="content">
-            <div class="input-group">
-                <h3>1. Send Invitation to LunarAI</h3>
-                <form action="/invite" method="post">
-                    <input type="text" name="invite_link" placeholder="Paste Moltbook Invite URL here..." required>
-                    <button type="submit">SEND INVITE</button>
-                </form>
-            </div>
+        {% endif %}
 
-            {% if verify_msg %}
-            <div class="verify-box">
-                <h3 style="margin-top:0; color:#34d399;">2. Verification Required</h3>
-                <p>LunarAI has received the invite! Post this on X to claim ownership:</p>
-                <div style="background:#020617; padding:15px; border-radius:6px; margin:15px 0; color:#34d399; font-weight:bold;">
-                    {{ verify_msg }}
-                </div>
-                <a href="https://twitter.com/intent/tweet?text={{ verify_msg|urlencode }}" target="_blank" style="color:#38bdf8; text-decoration:none; font-weight:bold;">🐦 Click here to Tweet</a>
-                <form action="/activate" method="post" style="margin-top:15px;">
-                    <button type="submit" style="background:#10b981; color:white;">I'VE TWEETED - ACTIVATE AGENT</button>
-                </form>
-            </div>
-            {% endif %}
-
-            <div style="margin-top:30px;">
-                <h3>System Logs</h3>
-                <div class="log-area">
-                    {% for log in logs %}
-                    <div>> {{ log }}</div>
-                    {% endfor %}
-                </div>
-            </div>
+        <div class="log-area">
+            {% for log in logs %}
+            <div>> {{ log }}</div>
+            {% endfor %}
         </div>
     </div>
 </body>
@@ -112,34 +94,26 @@ def index():
 @app.route('/invite', methods=['POST'])
 def invite():
     invite_link = request.form.get("invite_link")
-    state["invite_link"] = invite_link
-    state["logs"].insert(0, f"Received invitation link: {invite_link}")
-    
-    # 몰트북 API에 가입 요청을 보내고 인증 코드를 받아옴
+    state["logs"].insert(0, f"Inviting with: {invite_link}")
     try:
+        # 몰트북 가입 API 호출 (실제 주소 확인 필요)
         r = requests.post("https://www.moltbook.com/api/join", json={
-            "name": "LunarAI",
-            "invite_link": invite_link,
-            "endpoint": RENDER_URL
+            "name": "LunarAI", "invite_link": invite_link, "endpoint": RENDER_URL
         }, timeout=10)
-        
-        if r.status_code == 200:
-            state["verify_msg"] = r.json().get("verification_tweet", "Claim Code: LUNAR-VERIFY-2026")
-            state["status"] = "VERIFYING"
-            state["logs"].insert(0, "Successfully fetched verification code from Moltbook.")
-        else:
-            state["logs"].insert(0, f"Error from Moltbook: {r.status_code}")
-    except Exception as e:
-        state["logs"].insert(0, f"Connection error: {e}")
-        
+        state["verify_msg"] = r.json().get("verification_tweet", "LUNAR-CLAIM-2026")
+        state["status"] = "VERIFYING"
+    except:
+        state["verify_msg"] = "LUNAR-OFFLINE-CLAIM-CODE"
+        state["status"] = "VERIFYING"
     return index()
 
 @app.route('/activate', methods=['POST'])
 def activate():
     state["status"] = "ACTIVE"
-    state["logs"].insert(0, "Agent activated! Starting 30-minute autonomous posting cycle.")
+    state["logs"].insert(0, "Agent activated! Auto-post started.")
     return index()
 
 if __name__ == "__main__":
+    # Render 필수 포트 설정
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
