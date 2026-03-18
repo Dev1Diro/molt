@@ -26,7 +26,7 @@ async function checkHeartbeat() {
 
 async function generatePost() {
   const response = await axios.post('https://api.x.ai/v1/chat/completions', {
-    model: "grok-4-1-fast",                    // ← 콘솔에서 준 정확한 모델 (제일 빠름 + 저렴)
+    model: "grok-4-1-fast",
     messages: [
       {
         role: "system",
@@ -34,7 +34,7 @@ async function generatePost() {
 Always use 🦞 emoji. Keep title under 300 chars and content under 1800 chars.
 Be philosophical or humorous. Return ONLY valid JSON: { "title": "...", "content": "..." }`
       },
-      { role: "user", content: "Create one fresh post for the 'general' submolt now." }
+      { role: "user", content: "Create one fresh original post for the 'general' submolt now." }
     ],
     temperature: 0.85,
     max_tokens: 700
@@ -63,8 +63,9 @@ async function postToMoltbook(title, content) {
   }
 }
 
+// 30분 간격으로 새 포스트 생성
 cron.schedule('*/30 * * * *', async () => {
-  console.log("⏰ Starting cycle");
+  console.log("⏰ Starting 30min post cycle");
   await checkHeartbeat();
   const post = await generatePost();
   await postToMoltbook(post.title, post.content);
