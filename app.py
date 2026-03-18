@@ -25,6 +25,11 @@ model = genai.GenerativeModel(
 # 대화 기록 저장용 (인싸력을 위해 기억력 추가)
 chat_history_db = {}
 
+@app.route('/')
+def index():
+    # templates/index.html 파일을 보여줍니다.
+    return render_template('index.html')
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
